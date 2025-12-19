@@ -11,6 +11,7 @@ output: pdf_document
 
 ```{r}
 #| label: loading-data
+#| warning: false
 library(tidyverse)
 data <- read_csv("raw_memory_data_study1.csv")
 ```
@@ -18,6 +19,7 @@ data <- read_csv("raw_memory_data_study1.csv")
 ## Removing Missing Data
 
 ```{r}
+#| warning: false
 data_clean <- data |>
   filter(!is.na(Body) & !is.na(Object))
 nrow(data_clean)
