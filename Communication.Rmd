@@ -1,0 +1,164 @@
+---
+title: "Final Project Communication"
+author: "Ankit Mithbavkar"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+# This document is used to generate the plots shown in the infographic
+
+## Load the Data
+
+```{r}
+#| label: loading-data
+library(tidyverse)
+data <- read_csv("raw_memory_data_study1.csv")
+```
+
+## Removing Missing Data
+
+```{r}
+data_clean <- data |>
+  filter(!is.na(Body) & !is.na(Object))
+nrow(data_clean)
+nrow(data)
+```
+## Analysis: Testing the Embodiment Paradox
+
+To answer my research question, I am comparing the False Alarm rates of words with **High** vs. **Low** sensorimotor experience.
+
+```{r fig.align="center", echo = FALSE,fig.width = 10}
+#| label: plot-combined-interaction
+#| warning: false
+
+# Reshape the data to "Long" format
+# This stacks Body and Object scores into a single column called "Score"
+plot_data_long <- data %>%
+  filter(!is.na(Body) & !is.na(Object)) %>%
+  select(both_fa, Body, Object) %>%
+  pivot_longer(
+    cols = c(Body, Object), 
+    names_to = "Experience_Type", 
+    values_to = "Score"
+  )
+
+# Plot both trends on the same graph
+ggplot(plot_data_long, aes(x = Score, y = both_fa, color = Experience_Type)) +
+  geom_point(alpha = 0.1, size = 1) +
+  geom_smooth(method = "lm", se = TRUE, size = 1.5) +
+  scale_color_manual(values = c("Body" = "#e74c3c", "Object" = "#27ae60")) +
+  labs(
+    title = "The Divergence: Internal vs. External Experience",
+    subtitle = "Body experience (Red) increases errors, while Object experience (Green) reduces them.",
+    x = "Strength of Sensorimotor Experience (PCA Score)",
+    y = "False Alarm Rate",
+    color = "Experience Type"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "top")
+```
+
+
+## Analysis Cont.
+
+To further confirm my theory I want to 
+
+* **High Group:** Words in the top 25% of scores (Strongest experience).
+* **Low Group:** Words in the bottom 25% of scores (Weakest experience).
+
+```{r}
+#| label: analysis-body-object
+#| warning: false
+
+# Define High/Low Cutoffs (Top 25% and Bottom 25%)
+body_quants <- quantile(data_clean$Body, probs = c(0.25, 0.75))
+obj_quants  <- quantile(data_clean$Object, probs = c(0.25, 0.75))
+
+# We calculate the Mean False Alarm Rate (both_fa) for High/Low groups in both dimensions
+
+# Analyze Body
+body_summary <- data_clean |>
+  mutate(Group = case_when(
+    Body >= body_quants[2] ~ "High",
+    Body <= body_quants[1] ~ "Low",
+    TRUE ~ "Medium"
+  )) |>
+  filter(Group != "Medium") |>
+  group_by(Group) |>
+  summarise(
+    Mean_FA = mean(both_fa, na.rm = TRUE),
+    SE_FA = sd(both_fa, na.rm = TRUE) / sqrt(n()), # Standard Error for error bars
+    Dimension = "Internal (Body)"
+  )
+
+# Analyze Object
+object_summary <- data_clean |>
+  mutate(Group = case_when(
+    Object >= obj_quants[2] ~ "High",
+    Object <= obj_quants[1] ~ "Low",
+    TRUE ~ "Medium"
+  )) |>
+  filter(Group != "Medium") |>
+  group_by(Group) |>
+  summarise(
+    Mean_FA = mean(both_fa, na.rm = TRUE),
+    SE_FA = sd(both_fa, na.rm = TRUE) / sqrt(n()),
+    Dimension = "External (Object)"
+  )
+
+# Combine into one plot-ready dataframe
+plot_data <- bind_rows(body_summary, object_summary)
+
+# Generate the Comparative Bar Chart
+ggplot(plot_data, aes(x = Group, y = Mean_FA, fill = Group)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  facet_wrap(~Dimension) + # Creates side-by-side panels
+  scale_fill_manual(values = c("High" = "#e74c3c", "Low" = "#34495e")) +
+  labs(title = "The Paradox: Effect of Experience on False Alarms",
+       subtitle = "High Body experience increases errors; High Object experience does not.",
+       x = "Experience Level",
+       y = "Average False Alarm Rate") +
+  theme_minimal(base_size = 14) +
+  theme(legend.position = "none")
+```
+## Plot Creations for Canva
+
+```{r}
+#| label: export-for-canva
+#| eval: false
+
+# Cleaned scatter plot (The Trend)
+plot_trend <- ggplot(plot_data_long, aes(x = Score, y = both_fa, color = Experience_Type)) +
+  geom_point(alpha = 0.1, size = 1) + 
+  geom_smooth(method = "lm", se = TRUE, size = 2) +
+  scale_color_manual(values = c("Body" = "#e74c3c", "Object" = "#27ae60")) +
+  # Remove all titles/labels (will add these in Canva)
+  labs(x = NULL, y = NULL, title = NULL) + 
+  theme_minimal(base_size = 18) + # Larger text for readability
+  theme(
+    legend.position = "none", # Remove legend (will make a custom key in Canva)
+    panel.grid.minor = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), # Transparent
+    panel.background = element_rect(fill = "transparent", color = NA)
+  )
+
+# Cleaned bar chart (The Evidence)
+plot_bar <- ggplot(plot_data, aes(x = Group, y = Mean_FA, fill = Group)) +
+  geom_bar(stat = "identity", width = 0.6) +
+  geom_errorbar(aes(ymin = Mean_FA - SE_FA, ymax = Mean_FA + SE_FA), width = 0.2) +
+  facet_wrap(~Dimension) +
+  scale_fill_manual(values = c("High" = "#e74c3c", "Low" = "#34495e")) +
+  labs(x = NULL, y = NULL, title = NULL) +
+  theme_minimal(base_size = 18) +
+  theme(
+    legend.position = "none",
+    strip.text = element_text(size = 20, face = "bold"), # Keep "Internal/External" labels
+    plot.background = element_rect(fill = "transparent", color = NA),
+    panel.background = element_rect(fill = "transparent", color = NA)
+  )
+
+# Save the plots as transparent PNGs
+ggsave("canva_trend_plot.png", plot = plot_trend, width = 8, height = 5, bg = "transparent")
+ggsave("canva_bar_chart.png", plot = plot_bar, width = 8, height = 5, bg = "transparent")
+```
+

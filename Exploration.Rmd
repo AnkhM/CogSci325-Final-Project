@@ -1,0 +1,127 @@
+---
+title: "Final Project Exploratory Analysis"
+author: "Ankit Mithbavkar"
+date: "`r Sys.Date()`"
+output: pdf_document
+---
+
+## Load the Data
+
+```{r}
+#| label: loading-data
+library(tidyverse)
+data <- read_csv("raw_memory_data_study1.csv")
+```
+
+```{r}
+head(data)
+```
+
+## Find Missing Data
+
+When manually browsing the data, I noticed that some cells in the Object and Body columns were NA. How many total cells are NA and what proportion of the total column is missing?
+
+```{r}
+#| label: check-missing-data
+# Check for missing data in the Object component
+missing_stats <- data |>
+  summarise(
+    missing_body = sum(is.na(Body)),
+    missing_object = sum(is.na(Object)),
+    # Count rows where EITHER is missing
+    total_unusable = sum(is.na(Body) | is.na(Object))
+  )
+missing_stats
+```
+
+These words are missing from the sensorimotor columns. **61** words will be excluded from the final analysis.
+
+```{r}
+data_clean <- data |>
+  filter(!is.na(Body) & !is.na(Object))
+nrow(data_clean)
+nrow(data)
+```
+
+**61** words are now removed.
+
+## Finding the Distribution of Sensitivity
+
+d' is a measure of discriminability/sensitivity. It tells us how easily participants can tell old words apart from new words. The higher d' is the better a participant is at distinguishing these categories of words.
+
+Let's explore the distribution to gauge how well participants performed at this memory task.
+
+```{r}
+#| label: plot-sensitivity-distribution
+data_clean |>
+  ggplot(aes(x = d_both)) +
+  geom_histogram(binwidth = 0.25, fill = "#2c3e50", color = "white") +
+  geom_vline(aes(xintercept = mean(d_both, na.rm = TRUE)), 
+             color = "red", linetype = "dashed", size = 1) +
+  labs(title = "Distribution of Discrimination (d')",
+       subtitle = "Red line indicates mean sensitivity",
+       x = "d' (Sensitivity)",
+       y = "Frequency") +
+  theme_minimal(base_size = 14)
+```
+
+The data is roughly normal but slightly right-skewed. Since it is somewhat symmetric around 1.5, the data indicates participants generally performed decently at distinguishing between studied and new words but still faced some difficulty.
+
+## Finding the Distribution of False Alarm Rates
+
+A false alarm means that a participant incorrectly claimed they saw a word that was actually new. This is another metric that can help us gauge the participants' general performance at this task.
+
+```{r}
+#| label: plot-fa-distribution
+
+data_clean |>
+  ggplot(aes(x = both_fa)) +
+  geom_histogram(binwidth = 0.02, fill = "#e74c3c", color = "white") +
+  geom_vline(aes(xintercept = mean(both_fa, na.rm = TRUE)), 
+             color = "black", linetype = "dashed", size = 1) +
+  labs(title = "Distribution of False Alarm Rates",
+       subtitle = "Dashed line indicates mean False Alarm rate",
+       x = "False Alarm Rate (Proportion)",
+       y = "Frequency") +
+  theme_minimal(base_size = 14)
+```
+
+The distribution appears to be bimodal but with the mean rate being **20%**, participants were mostly good at identifying words they haven't seen on their original list of studied words.
+
+## Distribution of Body Experience
+
+Now, let's understand the distribution of body experiences. A word with a score of 0 means that it has a "normal" level of association with that specific sensorimotor experience.
+
+```{r}
+#| label: plot-body-distribution
+data_clean |>
+  ggplot(aes(x = Body)) +
+  geom_histogram(binwidth = 0.5, fill = "#8e44ad", color = "white") +
+  geom_vline(aes(xintercept = mean(Body)), 
+             color = "black", linetype = "dashed", size = 1) +
+  labs(title = "Distribution of Body Scores",
+       subtitle = "Dashed line = Mean",
+       x = "Body PCA Component", y = "Count") +
+  theme_minimal()
+```
+
+Since the distribution is right-skewed, most words have a stronger than average body association. A word with this score could be "kick" or "shiver" since they are strongly related to body experiences.
+
+## Distribution of Object Experience
+
+Now, let's explore the distribution for external or object experiences.
+
+```{r}
+#| label: plot-object-distribution
+data_clean |>
+  ggplot(aes(x = Object)) +
+  geom_histogram(binwidth = 0.5, fill = "#27ae60", color = "white") +
+  geom_vline(aes(xintercept = mean(Object)), 
+             color = "black", linetype = "dashed", size = 1) +
+  labs(title = "Distribution of Object Scores",
+       subtitle = "Dashed line = Mean",
+       x = "Object PCA Component", y = "Count") +
+  theme_minimal()
+```
+
+Similar to the Body PCA Component, the average score for the Object PCA Component is 0, meaning that the average word has a roughly normal association with "Object". The distribution is roughly normal, meaning there are around the same amount of words that are highly unrelated and highly related to external experiences.
